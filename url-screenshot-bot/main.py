@@ -206,6 +206,7 @@ import asyncio
 import zipfile
 import shutil
 import uuid
+import subprocess
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright
 
@@ -298,19 +299,31 @@ if uploaded_file:
 
     logs = [
     "✅ SYSTEM READY... 구동 준비가 완료되었습니다.",
-    "🚀 파일을 업로드한 뒤 '시스템 가동' 버튼을 클릭하세요.",
+    "🚀 '시스템 가동' 버튼을 클릭하세요.",
+    ""
     "⏱️ 첫 실행 시 환경 구성 작업으로 인해 다소 시간이 소요될 수 있습니다.",
     "📢 로그가 뜰 때까지 브라우저를 종료하지 마세요.",
-    "🧹 무료 서버의 안정성을 위해 작업 후 [서버 데이터 정리]를 눌러주세요."
+    "🧹 무료 서버의 안정성을 위해 *** 작업 후 [서버 데이터 정리]를 눌러주세요."
 ]
     log_board.code("\n".join(logs), language="bash")
     failed_urls = []
 
-    if start_btn:
-        if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
-        os.makedirs(temp_dir)
+if start_btn:
+    if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir)
 
+    # --- [추가] 서버 환경에서 브라우저 자동 설치 확인 ---
+    try:
+        # 브라우저가 있는지 확인하기 위해 시도
         with sync_playwright() as p:
+            p.chromium.launch(headless=True)
+    except Exception:
+        # 에러가 나면 브라우저가 없는 것이므로 설치 진행
+        st.info("서버에 브라우저가 감지되지 않아 설치를 시작합니다. 잠시만 기다려 주세요...")
+        subprocess.run(["playwright", "install", "chromium"])
+    # -----------------------------------------------
+
+    with sync_playwright() as p:
             status_text.write("🚀 브라우저 엔진을 가동하는 중...")
             browser = p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-dev-shm-usage'])
             context = browser.new_context(viewport={'width': 1920, 'height': 1080})
