@@ -19,6 +19,20 @@ os.environ["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_BROWSERS_PATH
 def install_browser():
     env = os.environ.copy()
     env["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_BROWSERS_PATH
+
+    # 시스템 라이브러리 직접 설치 (packages.txt 가 적용 안 될 경우 대비)
+    apt_packages = [
+        "libglib2.0-0t64", "libnspr4", "libnss3", "libdbus-1-3",
+        "libatk1.0-0t64", "libatk-bridge2.0-0t64", "libatspi2.0-0t64",
+        "libxcomposite1", "libxdamage1", "libxfixes3", "libxrandr2",
+        "libgbm1", "libxkbcommon0", "libasound2t64"
+    ]
+    subprocess.run(
+        ["apt-get", "install", "-y", "--no-install-recommends"] + apt_packages,
+        capture_output=True, text=True
+    )
+
+    # 브라우저 설치
     result = subprocess.run(
         [sys.executable, "-m", "playwright", "install", "chromium"],
         env=env,
