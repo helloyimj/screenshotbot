@@ -369,4 +369,13 @@ if uploaded_file:
                 with open(zip_path, "rb") as f:
                     st.download_button("ZIP 파일 다운로드 📥", f, file_name=zip_path, use_container_width=True)
 
-      
+            if failed_urls:
+                st.markdown("<h3 style='color: #ff4b4b;'>❌ 실패한 URL 리스트</h3>", unsafe_allow_html=True)
+                st.code("\n".join(failed_urls), language="text")
+
+            # 로컬인 경우 폴더 열기
+            try: os.startfile(os.path.abspath(temp_dir))
+            except: pass
+
+else:
+    st.info("사이드바에서 엑셀 파일을 업로드하면 기능이 활성화됩니다.")
