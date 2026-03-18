@@ -13,7 +13,12 @@ import streamlit as st
 # [핵심 수술 1] 권한 에러(sudo)를 일으키는 중복 로직을 완전히 삭제하고, 가장 안전한 한 줄만 남겼습니다.
 @st.cache_resource
 def install_browser():
-    os.system("playwright install chromium --with-deps")
+    result = subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "--with-deps", "chromium"],
+        capture_output=True,
+        text=True
+    )
+    return result.returncode
 
 install_browser()
 
