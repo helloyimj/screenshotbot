@@ -6,38 +6,33 @@ import asyncio
 import zipfile
 import shutil
 import uuid
-import glob
 import pandas as pd
 from urllib.parse import urlparse
 import streamlit as st
 
-# [핵심 수술 1] 환경변수 의존 없이, 실행파일 경로를 직접 탐색하여 경로 불일치 문제를 근본 해결합니다.
-@st.cache_resource
-def get_or_install_chromium():
-    '''설치된 chromium 실행파일 경로를 찾고, 없으면 설치 후 경로를 반환합니다.'''
-    def find_path():
-        result = subprocess.run(
-            [sys.executable, '-m', 'playwright', 'install', '--dry-run', 'chromium'],
-            capture_output=True, text=True
-        )
-        for line in result.stdout.splitlines():
-            if 'Install location:' in line and 'headless_shell' not in line and 'chromium-' in line:
-                install_path = line.split('Install location:')[1].strip()
-                exes = glob.glob(install_path + '/**/chrome', recursive=True)
-                if exes:
-                    return exes[0]
-        return None
+# [핵심 수술 1]
+# 문제 원인: PLAYWRIGHT_BROWSERS_PATH 미설정 시 playwright는 실행 유저 홈(adminuser)을 봄
+#           그런데 install이 안 된 상태라 실행파일이 없어서 launch 실패
+# 해결책:   ① 환경변수를 adminuser 경로로 코드 최상단에서 고정 (import 전에)
+#           ② @st.cache_resource 제거 → 매 실행마다 install 확인 (이미 있으면 즉시 완료)
+#           ③ executable_path 제거 → playwright가 환경변수 기준으로 알아서 탐색
+PLAYWRIGHT_BROWSERS_PATH = "/home/adminuser/.cache/ms-playwright"
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_BROWSERS_PATH
 
-    path = find_path()
-    if path and os.path.exists(path):
-        return path
+def install_browser():
+    env = os.environ.copy()
+    env["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_BROWSERS_PATH
+    result = subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "chromium"],
+        env=env,
+        capture_output=True,
+        text=True
+    )
+    if result.returncode != 0:
+        st.error(f"브라우저 설치 실패:\n{result.stderr}")
+        st.stop()
 
-    # 경로를 찾지 못했거나 파일이 없으면 설치 후 재탐색
-    subprocess.run([sys.executable, '-m', 'playwright', 'install', 'chromium'],
-                   capture_output=True, text=True)
-    return find_path()
-
-CHROMIUM_PATH = get_or_install_chromium()
+install_browser()
 
 from playwright.sync_api import sync_playwright
 
@@ -146,7 +141,6 @@ if uploaded_file:
             
             # [핵심 수술 2] 불필요한 경로 찾기 코드를 다 날리고 순정 상태로 실행합니다.
             browser = p.chromium.launch(
-                executable_path=CHROMIUM_PATH,
                 headless=True,
                 args=[
                     '--no-sandbox',
