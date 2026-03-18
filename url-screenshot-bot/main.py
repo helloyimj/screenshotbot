@@ -13,7 +13,7 @@ import streamlit as st
 # [핵심 수술 1] 권한 에러(sudo)를 일으키는 중복 로직을 완전히 삭제하고, 가장 안전한 한 줄만 남겼습니다.
 @st.cache_resource
 def install_browser():
-    os.system("playwright install chromium")
+    os.system("playwright install chromium --with-deps")
 
 install_browser()
 
@@ -129,7 +129,9 @@ if uploaded_file:
                     '--no-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-gpu',
-                    '--disable-extensions'
+                    '--disable-extensions',
+                    '--single-process',
+                    '--no-zygote',
                 ]
             )
             context = browser.new_context(viewport={'width': 1920, 'height': 1080})
