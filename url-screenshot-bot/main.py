@@ -1,204 +1,3 @@
-# import streamlit as st
-# import pandas as pd
-# import os
-# import time
-# import sys
-# import asyncio
-# from urllib.parse import urlparse
-# from playwright.sync_api import sync_playwright
-
-# # --- Windows 환경에서 NotImplementedError 해결을 위한 설정 ---
-# if sys.platform == 'win32':
-#     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-
-# # --- 페이지 기본 설정 (디자인 강화) ---
-# st.set_page_config(page_title="스크린샷 작업 전광판", layout="wide", initial_sidebar_state="expanded")
-
-# # --- 까리한 CSS 스타일 적용 ---
-# st.markdown("""
-#     <style>
-#     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
-    
-#     /* 전체 배경 및 폰트 설정 */
-#     .main { background-color: #0e1117; }
-#     p, h1, h2, h3, span { font-family: 'Pretendard', sans-serif; }
-    
-#     /* 네온 그린 프로그레스 바 */
-#     .stProgress > div > div > div > div {
-#         background-image: linear-gradient(to right, #00ff41 , #008f11);
-#     }
-    
-#     /* 사이드바 스타일 */
-#     [data-testid="stSidebar"] {
-#         border-right: 1px solid #30363d;
-#     }
-    
-#     /* 전광판 로그 박스 스타일 */
-#     .stCodeBlock {
-#         background-color: #000000 !important;
-#         border: 1px solid #00ff41 !important;
-#         box-shadow: 0 0 10px rgba(0, 255, 65, 0.2);
-#     }
-    
-#     /* 메트릭 카드 스타일 */
-#     .metric-container {
-#         background-color: #1c2128;
-#         padding: 15px;
-#         border-radius: 10px;
-#         border: 1px solid #30363d;
-#         text-align: center;
-#     }
-#     .metric-label { color: #8b949e; font-size: 14px; }
-#     .metric-value { color: #00ff41; font-size: 24px; font-weight: bold; text-shadow: 0 0 5px #00ff41; }
-#     </style>
-#     """, unsafe_allow_html=True)
-
-# # --- 설정값 ---
-# RESULT_DIR = "output"
-# SET_SIZE = 10
-
-# def get_representative_name(url):
-#     try:
-#         domain = urlparse(url).netloc
-#         name = domain.split('.')[0]
-#         if name == 'www' and len(domain.split('.')) > 1:
-#             name = domain.split('.')[1]
-#         return name if name else "image"
-#     except:
-#         return "image"
-
-# # 2. 웹 UI 설정 (상단 타이틀 디자인)
-# st.markdown("<h1 style='text-align: center; color: #00ff41;'>📟 스크린샷 작업 실시간 현황</h1>", unsafe_allow_html=True)
-# st.markdown("<div style='text-align: center; color: #8b949e; margin-bottom: 20px;'>SCREENSHOT COMMAND CENTER v1.0</div>", unsafe_allow_html=True)
-
-# # 3. 사이드바 설정
-# st.sidebar.markdown("<h2 style='color: #00ff41;'>📂 데이터 업로드</h2>", unsafe_allow_html=True)
-# uploaded_file = st.sidebar.file_uploader("URL이 담긴 엑셀 파일을 선택하세요", type=['xlsx'])
-
-# if uploaded_file:
-#     try:
-#         df = pd.read_excel(uploaded_file, engine='openpyxl', header=None)
-#         all_urls = df.iloc[:, 0].dropna().tolist()
-#         total_urls = len(all_urls)
-        
-#         st.sidebar.success(f"✅ 총 {total_urls}개의 URL 로드 완료")
-        
-#         # 상단 현황판 (카드 형태)
-#         c1, c2, c3 = st.columns(3)
-#         with c1:
-#             st.markdown(f"<div class='metric-container'><div class='metric-label'>전체 타겟</div><div class='metric-value'>{total_urls}</div></div>", unsafe_allow_html=True)
-#         with c2:
-#             count_placeholder = st.empty()
-#             count_placeholder.markdown(f"<div class='metric-container'><div class='metric-label'>현재 완료</div><div class='metric-value'>0</div></div>", unsafe_allow_html=True)
-#         with c3:
-#             time_placeholder = st.empty()
-#             time_placeholder.markdown(f"<div class='metric-container'><div class='metric-label'>소요 시간</div><div class='metric-value'>0s</div></div>", unsafe_allow_html=True)
-
-#         st.markdown("---")
-        
-#         # 전광판 UI 레이아웃
-#         col1, col2 = st.columns([1, 1])
-#         with col1:
-#             st.markdown("<h3 style='color: #00ff41;'>📊 전체 진행률</h3>", unsafe_allow_html=True)
-#             progress_bar = st.progress(0)
-#             status_text = st.empty()
-        
-#         with col2:
-#             st.markdown("<h3 style='color: #00ff41;'>💡 현재 작업 상태</h3>", unsafe_allow_html=True)
-#             current_task_display = st.empty()
-
-#         st.markdown("<h3 style='color: #00ff41;'>📝 실시간 작업 히스토리</h3>", unsafe_allow_html=True)
-#         log_board = st.empty()
-#         logs = ["SYSTEM READY... AWAITING INITIATION"]
-#         log_board.code("\n".join(logs), language="bash")
-
-#         if st.sidebar.button("스크린샷 작업 시작 🚀", use_container_width=True):
-#             if not os.path.exists(RESULT_DIR):
-#                 os.makedirs(RESULT_DIR)
-
-#             with sync_playwright() as p:
-#                 status_text.write("🚀 브라우저를 실행하는 중...")
-#                 browser = p.chromium.launch(headless=True)
-#                 context = browser.new_context(viewport={'width': 1920, 'height': 1080})
-#                 page = context.new_page()
-
-#                 global_count = 1
-#                 start_time = time.time()
-
-#                 for i in range(0, total_urls, SET_SIZE):
-#                     current_set = all_urls[i : i + SET_SIZE]
-#                     set_num = (i // SET_SIZE) + 1
-                    
-#                     set_header = f"\n--- [세트 {set_num}] 작업 시작 (URL {i+1} ~ {min(i+SET_SIZE, total_urls)}) ---"
-#                     logs.append(set_header)
-#                     log_board.code("\n".join(logs[-15:]))
-
-#                     for url in current_set:
-#                         if not str(url).startswith('http'):
-#                             url = 'https://' + str(url)
-
-#                         rep_name = get_representative_name(url)
-#                         file_name = f"{rep_name}{global_count}.png"
-#                         file_path = os.path.join(RESULT_DIR, file_name)
-                        
-#                         try:
-#                             # 실시간 지표 업데이트
-#                             elapsed_time = int(time.time() - start_time)
-#                             count_placeholder.markdown(f"<div class='metric-container'><div class='metric-label'>현재 완료</div><div class='metric-value'>{global_count}</div></div>", unsafe_allow_html=True)
-#                             time_placeholder.markdown(f"<div class='metric-container'><div class='metric-label'>소요 시간</div><div class='metric-value'>{elapsed_time}s</div></div>", unsafe_allow_html=True)
-                            
-#                             current_msg = f"[{global_count}/{total_urls}] 처리 중: {url}"
-#                             current_task_display.info(current_msg)
-                            
-#                             page.goto(url, wait_until="networkidle", timeout=60000)
-#                             page.wait_for_timeout(500)
-#                             page.screenshot(path=file_path, full_page=True)
-                            
-#                             log_entry = f"   └─ 저장 완료: {file_name}"
-#                             logs.append(current_msg)
-#                             logs.append(log_entry)
-                            
-#                             log_board.code("\n".join(logs[-20:]))
-#                             progress_bar.progress(global_count / total_urls)
-#                             status_text.write(f"진행률: {int((global_count/total_urls)*100)}%")
-                            
-#                             global_count += 1
-#                         except Exception as e:
-#                             error_msg = f"   ⚠️ 오류 발생: {url} (건너뜀)"
-#                             logs.append(error_msg)
-#                             log_board.code("\n".join(logs[-20:]))
-
-#                 browser.close()
-#                 st.balloons()
-#                 st.success(f"✨ 모든 작업 완료!")
-#                 os.startfile(os.path.abspath(RESULT_DIR))
-
-#     except Exception as e:
-#         st.error(f"파일 처리 중 오류: {e}")
-# else:
-#     st.info("사이드바에서 엑셀 파일을 업로드하세요.")
-
-
-
-# 배포용 재작성
-
-
-# main.py 최상단에 추가
-import subprocess
-
-# 서버 환경에서 Playwright 브라우저가 없을 경우 자동 설치
-try:
-    from playwright.sync_api import sync_playwright
-except ImportError:
-    os.system("pip install playwright")
-    os.system("playwright install chromium")
-
-# 만약 서버에서 실행 시 브라우저가 없다는 에러가 나면 아래 한 줄을 실행 로직 앞에 추가하세요.
-# subprocess.run(["playwright", "install", "chromium"])
-
-
-import streamlit as st
-import pandas as pd
 import os
 import subprocess
 import time
@@ -207,28 +6,29 @@ import asyncio
 import zipfile
 import shutil
 import uuid
+import streamlit as st
+import pandas as pd
 from urllib.parse import urlparse
-from playwright.sync_api import sync_playwright
 
-# [서버 전용] Playwright 브라우저 강제 설치 체크
-def install_playwright_browsers():
+# [서버 전용] Playwright 및 브라우저 강제 설치 함수 (중복 로직 통합)
+@st.cache_resource
+def install_playwright():
     try:
-        # 브라우저가 있는지 확인차 실행
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        return # 라이브러리 자체가 없으면 나중에 에러가 날 테니 통과
+        # 이미 설치되어 있는지 확인
+        subprocess.run(["playwright", "--version"], check=True)
+    except FileNotFoundError:
+        # 설치가 안 되어 있다면 설치 진행
+        subprocess.run([sys.executable, "-m", "pip", "install", "playwright"], check=True)
+    
+    # 브라우저 및 시스템 의존성 설치 (가장 확실한 방법)
+    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+    subprocess.run([sys.executable, "-m", "playwright", "install-deps"], check=False)
 
-    # 환경 변수를 통해 한 번만 실행되도록 설정 (서버 부하 방지)
-    if "PLAYWRIGHT_INSTALLED" not in st.session_state:
-        try:
-            # --with-deps는 시스템 패키지까지 건드리므로 여기선 install만 진행
-            subprocess.run(["playwright", "install", "chromium"], check=True)
-            st.session_state["PLAYWRIGHT_INSTALLED"] = True
-        except Exception as e:
-            st.error(f"브라우저 설치 중 오류 발생: {e}")
+# 앱 실행 시 가장 먼저 실행 (서버 환경 세팅)
+install_playwright()
 
-# 앱 시작 시 호출
-install_playwright_browsers()
+# 이제 안전하게 import 가능
+from playwright.sync_api import sync_playwright
 
 # --- Windows 환경 에러 해결 ---
 if sys.platform == 'win32':
@@ -237,7 +37,7 @@ if sys.platform == 'win32':
 # --- 페이지 기본 설정 ---
 st.set_page_config(page_title="SCREENSHOT COMMAND CENTER V2", layout="wide", initial_sidebar_state="expanded")
 
-# --- CSS 스타일  ---
+# --- CSS 스타일 ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
@@ -248,7 +48,7 @@ st.markdown("""
     [data-testid="stSidebar"] { border-right: 1px solid #30363d; background-color: #ccc; }
     .stCodeBlock { background-color: #000000 !important; border: 1px solid #00ff41 !important; box-shadow: 0 0 10px rgba(0, 255, 65, 0.2); }
     .metric-container { background-color: #1c2128; padding: 15px; border-radius: 10px; border: 1px solid #30363d; text-align: center; }
-    .metric-label { color: #8b949e; color: #00ff41; font-size: 14px; }
+    .metric-label { color: #00ff41; font-size: 14px; }
     .metric-value { color: #00ff41; font-size: 24px; font-weight: bold; text-shadow: 0 0 5px #00ff41; }
     </style>
     """, unsafe_allow_html=True)
@@ -272,7 +72,6 @@ def get_representative_name(url):
 
 # --- 메인 헤더 ---
 st.markdown("<h1 style='text-align: center; color: #333;'>📟 스크린샷 현황</h1>", unsafe_allow_html=True)
-# st.markdown("<h1 style='text-align: center; color: #00ff41; text-shadow: 0 0 10px #00ff41;'>📟 스크린샷 현황</h1>", unsafe_allow_html=True)
 st.markdown(f"<div style='text-align: center; color: #8b949e; margin-bottom: 20px;'>COMMAND CENTER ID: {job_id}</div>", unsafe_allow_html=True)
 
 # --- 사이드바 ---
@@ -317,41 +116,32 @@ if uploaded_file:
         preview_placeholder = st.empty()
         preview_placeholder.info("시스템 가동 시 미리보기가 표시됩니다.")
 
+    # 콤마(,) 누락 버그 수정
     logs = [
-    "✅ SYSTEM READY... 구동 준비가 완료되었습니다.",
-    ""
-    "⏱️ 첫 실행 시 환경 구성 작업으로 인해 다소 시간이 소요될 수 있습니다.",
-    "📢 로그가 뜰 때까지 브라우저를 종료하지 마세요.",
-    "🧹 무료 서버의 안정성을 위해 *** 모든 작업의 종료 후 [서버 데이터 정리]버튼을 눌러주세요."
-]
+        "✅ SYSTEM READY... 구동 준비가 완료되었습니다.",
+        "",
+        "⏱️ 첫 실행 시 환경 구성 작업으로 인해 다소 시간이 소요될 수 있습니다.",
+        "📢 로그가 뜰 때까지 브라우저를 종료하지 마세요.",
+        "🧹 무료 서버의 안정성을 위해 *** 모든 작업의 종료 후 [서버 데이터 정리]버튼을 눌러주세요."
+    ]
     log_board.code("\n".join(logs), language="bash")
     failed_urls = []
 
-if start_btn:
-    if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
-    os.makedirs(temp_dir)
+    if start_btn:
+        if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
+        os.makedirs(temp_dir)
 
-    # --- [추가] 서버 환경에서 브라우저 자동 설치 확인 ---
-    try:
-        # 브라우저가 있는지 확인하기 위해 시도
         with sync_playwright() as p:
-            p.chromium.launch(headless=True)
-    except Exception:
-        # 에러가 나면 브라우저가 없는 것이므로 설치 진행
-        st.info("서버에 브라우저가 감지되지 않아 설치를 시작합니다. 잠시만 기다려 주세요...")
-        subprocess.run(["playwright", "install", "chromium"])
-    # -----------------------------------------------
-
-    with sync_playwright() as p:
             status_text.write("🚀 브라우저 엔진을 가동하는 중...")
-            # browser = p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-dev-shm-usage'])
             browser = p.chromium.launch(
-                headless=True, 
+                headless=True,
                 args=[
-                    '--no-sandbox', 
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',  # 서버에는 그래픽카드가 없으므로 끄는 게 안정적입니다
-                    '--single-process' # 메모리 절약을 위해 단일 프로세스 모드 권장
+                    '--no-sandbox',                # 리눅스 환경 필수
+                    '--disable-dev-shm-usage',     # 공유 메모리 에러 방지 (메모리 부족 해결)
+                    '--disable-gpu',               # 서버엔 그래픽 카드가 없으므로 끄기
+                    '--disable-extensions',        # 확장 프로그램 끄기
+                    '--disable-setuid-sandbox',    # 추가 샌드박스 보안 해제
+                    '--single-process'             # 메모리 점유율 최소화
                 ]
             )
             context = browser.new_context(viewport={'width': 1920, 'height': 1080})
@@ -420,7 +210,7 @@ if start_btn:
                 st.markdown("<h3 style='color: #ff4b4b;'>❌ 실패한 URL 리스트</h3>", unsafe_allow_html=True)
                 st.code("\n".join(failed_urls), language="text")
 
-            # 로컬인 경우 폴더 열기
+            # 로컬인 경우 폴더 열기 (서버에서는 작동하지 않으나 에러는 안 남)
             try: os.startfile(os.path.abspath(temp_dir))
             except: pass
 
