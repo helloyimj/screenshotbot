@@ -10,13 +10,19 @@ import pandas as pd
 from urllib.parse import urlparse
 import streamlit as st
 
-# [핵심 수술 1] 권한 에러(sudo)를 일으키는 중복 로직을 완전히 삭제하고, 가장 안전한 한 줄만 남겼습니다.
+# [핵심 수술 1] 브라우저 설치 경로를 adminuser 홈으로 고정하여 appuser/adminuser 경로 불일치 문제를 해결합니다.
+BROWSERS_PATH = "/home/adminuser/.cache/ms-playwright"
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = BROWSERS_PATH
+
 @st.cache_resource
 def install_browser():
+    env = os.environ.copy()
+    env["PLAYWRIGHT_BROWSERS_PATH"] = BROWSERS_PATH
     result = subprocess.run(
-        [sys.executable, "-m", "playwright", "install", "--with-deps", "chromium"],
+        [sys.executable, "-m", "playwright", "install", "chromium"],
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
     return result.returncode
 
