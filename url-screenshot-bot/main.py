@@ -200,15 +200,35 @@ except ImportError:
 import streamlit as st
 import pandas as pd
 import os
+import subprocess
 import time
 import sys
 import asyncio
 import zipfile
 import shutil
 import uuid
-import subprocess
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright
+
+# [서버 전용] Playwright 브라우저 강제 설치 체크
+def install_playwright_browsers():
+    try:
+        # 브라우저가 있는지 확인차 실행
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return # 라이브러리 자체가 없으면 나중에 에러가 날 테니 통과
+
+    # 환경 변수를 통해 한 번만 실행되도록 설정 (서버 부하 방지)
+    if "PLAYWRIGHT_INSTALLED" not in st.session_state:
+        try:
+            # --with-deps는 시스템 패키지까지 건드리므로 여기선 install만 진행
+            subprocess.run(["playwright", "install", "chromium"], check=True)
+            st.session_state["PLAYWRIGHT_INSTALLED"] = True
+        except Exception as e:
+            st.error(f"브라우저 설치 중 오류 발생: {e}")
+
+# 앱 시작 시 호출
+install_playwright_browsers()
 
 # --- Windows 환경 에러 해결 ---
 if sys.platform == 'win32':
@@ -217,7 +237,7 @@ if sys.platform == 'win32':
 # --- 페이지 기본 설정 ---
 st.set_page_config(page_title="SCREENSHOT COMMAND CENTER V2", layout="wide", initial_sidebar_state="expanded")
 
-# --- 까리한 CSS 스타일 (UI 복구) ---
+# --- CSS 스타일  ---
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
@@ -299,11 +319,10 @@ if uploaded_file:
 
     logs = [
     "✅ SYSTEM READY... 구동 준비가 완료되었습니다.",
-    "🚀 '시스템 가동' 버튼을 클릭하세요.",
     ""
     "⏱️ 첫 실행 시 환경 구성 작업으로 인해 다소 시간이 소요될 수 있습니다.",
     "📢 로그가 뜰 때까지 브라우저를 종료하지 마세요.",
-    "🧹 무료 서버의 안정성을 위해 *** 작업 후 [서버 데이터 정리]를 눌러주세요."
+    "🧹 무료 서버의 안정성을 위해 *** 모든 작업의 종료 후 [서버 데이터 정리]버튼을 눌러주세요."
 ]
     log_board.code("\n".join(logs), language="bash")
     failed_urls = []
@@ -325,7 +344,16 @@ if start_btn:
 
     with sync_playwright() as p:
             status_text.write("🚀 브라우저 엔진을 가동하는 중...")
-            browser = p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-dev-shm-usage'])
+            # browser = p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-dev-shm-usage'])
+            browser = p.chromium.launch(
+                headless=True, 
+                args=[
+                    '--no-sandbox', 
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',  # 서버에는 그래픽카드가 없으므로 끄는 게 안정적입니다
+                    '--single-process' # 메모리 절약을 위해 단일 프로세스 모드 권장
+                ]
+            )
             context = browser.new_context(viewport={'width': 1920, 'height': 1080})
             page = context.new_page()
 
@@ -397,4 +425,4 @@ if start_btn:
             except: pass
 
 else:
-    st.info("사이드바에서 엑셀 파일을 업로드하면 기능이 활성화됩니다.")
+    st.info("사이드바에서 엑셀 파일을 업로드 후 시스템 가동 버튼을 누르면 기능이 활성화됩니다.")
