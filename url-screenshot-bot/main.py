@@ -11,11 +11,7 @@ from urllib.parse import urlparse
 import streamlit as st
 
 # [핵심 수술 1]
-# 문제 원인: PLAYWRIGHT_BROWSERS_PATH 미설정 시 playwright는 실행 유저 홈(adminuser)을 봄
-#           그런데 install이 안 된 상태라 실행파일이 없어서 launch 실패
-# 해결책:   ① 환경변수를 adminuser 경로로 코드 최상단에서 고정 (import 전에)
-#           ② @st.cache_resource 제거 → 매 실행마다 install 확인 (이미 있으면 즉시 완료)
-#           ③ executable_path 제거 → playwright가 환경변수 기준으로 알아서 탐색
+# PLAYWRIGHT_BROWSERS_PATH를 파일 최상단에서 고정 (import 전에 설정해야 적용됨)
 PLAYWRIGHT_BROWSERS_PATH = "/home/adminuser/.cache/ms-playwright"
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_BROWSERS_PATH
 
@@ -28,9 +24,10 @@ def install_browser():
         capture_output=True,
         text=True
     )
+    # stdout과 stderr를 모두 합쳐서 표시 (playwright는 에러를 stdout에도 출력함)
+    combined = (result.stdout + result.stderr).strip()
     if result.returncode != 0:
-        st.error(f"브라우저 설치 실패:\n{result.stderr}")
-        st.stop()
+        st.warning(f"브라우저 설치 중 문제 발생 (무시하고 계속 시도):\n{combined}")
 
 install_browser()
 
