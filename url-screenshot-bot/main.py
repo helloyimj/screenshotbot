@@ -131,25 +131,37 @@ if uploaded_file:
         if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
         os.makedirs(temp_dir)
 
+        # 💡 [로컬/서버 만능 호환 로직] 
+        # 컴퓨터에 깔린 크롬 경로를 찾습니다. (리눅스용, 윈도우용 모두 확인)
+        system_chromium_path = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome") or shutil.which("chrome")
+        
         with sync_playwright() as p:
             status_text.write("🚀 브라우저 엔진을 가동하는 중...")
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',                # 리눅스 환경 필수
-                    '--disable-dev-shm-usage',     # 공유 메모리 에러 방지 (메모리 부족 해결)
-                    '--disable-gpu',               # 서버엔 그래픽 카드가 없으므로 끄기
-                    '--disable-extensions',        # 확장 프로그램 끄기
-                    '--disable-setuid-sandbox',    # 추가 샌드박스 보안 해제
-                    '--single-process'             # 메모리 점유율 최소화
+            
+            # 실행 옵션 (로컬과 서버 모두 안정적으로 돌아가게 설정)
+            launch_args = {
+                "headless": True,
+                "args": [
+                    '--no-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-extensions'
                 ]
-            )
+            }
+            
+            # 서버 환경이거나 시스템 크롬이 발견되면 해당 경로를 사용
+            if system_chromium_path:
+                launch_args["executable_path"] = system_chromium_path
+                
+            # 브라우저 실행!
+            browser = p.chromium.launch(**launch_args)
             context = browser.new_context(viewport={'width': 1920, 'height': 1080})
             page = context.new_page()
 
             global_count = 1
             start_time = time.time()
 
+            # --- 이후 반복문(for i in range...)은 기존 코드와 100% 동일하게 유지 ---
             for i in range(0, total_urls, 10):
                 current_set = all_urls[i : i + 10]
                 set_num = (i // 10) + 1
@@ -167,12 +179,10 @@ if uploaded_file:
                         count_placeholder.markdown(f"<div class='metric-container'><div class='metric-label'>현재 완료</div><div class='metric-value'>{global_count}</div></div>", unsafe_allow_html=True)
                         time_placeholder.markdown(f"<div class='metric-container'><div class='metric-label'>소요 시간</div><div class='metric-value'>{elapsed}s</div></div>", unsafe_allow_html=True)
                         
-                        # 캡처 프로세스
                         page.goto(url, wait_until="networkidle", timeout=60000)
                         page.wait_for_timeout(500)
                         page.screenshot(path=file_path, full_page=True)
 
-                        # 로그 및 UI 업데이트
                         current_msg = f"[{global_count}/{total_urls}] 처리 중: {url}"
                         logs.append(current_msg)
                         logs.append(f"   └─ 저장 완료: {file_name}")
