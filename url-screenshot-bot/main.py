@@ -10,11 +10,12 @@ import pandas as pd
 from urllib.parse import urlparse
 import streamlit as st
 
-# [핵심 수술 1]
-# /home/adminuser/.cache 는 권한 없음 → /tmp 는 항상 쓰기 가능
+# /tmp 는 항상 쓰기 가능 → 브라우저 설치 경로로 사용
 PLAYWRIGHT_BROWSERS_PATH = "/tmp/pw-browsers"
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_BROWSERS_PATH
 
+# @st.cache_resource: 서버 프로세스당 딱 한 번만 실행 (매 페이지 리로드마다 재실행 방지)
+@st.cache_resource
 def install_browser():
     env = os.environ.copy()
     env["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_BROWSERS_PATH
@@ -26,10 +27,14 @@ def install_browser():
     )
     if result.returncode != 0:
         combined = (result.stdout + result.stderr).strip()
-        st.error(f"브라우저 설치 실패:\n{combined}")
-        st.stop()
+        raise RuntimeError(f"브라우저 설치 실패:\n{combined}")
+    return True
 
-install_browser()
+try:
+    install_browser()
+except RuntimeError as e:
+    st.error(str(e))
+    st.stop()
 
 from playwright.sync_api import sync_playwright
 
