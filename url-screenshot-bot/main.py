@@ -6,34 +6,20 @@ import asyncio
 import zipfile
 import shutil
 import uuid
-import streamlit as st
-# [서버 전용] Playwright 전용 크롬 브라우저를 클라우드에 직접 설치합니다.
-os.system("playwright install chromium")
-
 import pandas as pd
 from urllib.parse import urlparse
+import streamlit as st
 
-# [서버 전용] Playwright 및 브라우저 강제 설치 함수 (중복 로직 통합)
+# [핵심 수술 1] 권한 에러(sudo)를 일으키는 중복 로직을 완전히 삭제하고, 가장 안전한 한 줄만 남겼습니다.
 @st.cache_resource
-def install_playwright():
-    try:
-        # 이미 설치되어 있는지 확인
-        subprocess.run(["playwright", "--version"], check=True)
-    except FileNotFoundError:
-        # 설치가 안 되어 있다면 설치 진행
-        subprocess.run([sys.executable, "-m", "pip", "install", "playwright"], check=True)
-    
-    # 브라우저 및 시스템 의존성 설치 (가장 확실한 방법)
-    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-    subprocess.run([sys.executable, "-m", "playwright", "install-deps"], check=False)
+def install_browser():
+    os.system("playwright install chromium")
 
-# 앱 실행 시 가장 먼저 실행 (서버 환경 세팅)
-install_playwright()
+install_browser()
 
-# 이제 안전하게 import 가능
 from playwright.sync_api import sync_playwright
 
-# --- Windows 환경 에러 해결 ---
+# --- Windows 환경 에러 해결 (중복 제거) ---
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
@@ -119,7 +105,6 @@ if uploaded_file:
         preview_placeholder = st.empty()
         preview_placeholder.info("시스템 가동 시 미리보기가 표시됩니다.")
 
-    # 콤마(,) 누락 버그 수정
     logs = [
         "✅ SYSTEM READY... 구동 준비가 완료되었습니다.",
         "",
@@ -137,7 +122,7 @@ if uploaded_file:
         with sync_playwright() as p:
             status_text.write("🚀 Playwright 전용 브라우저 엔진 가동 중...")
             
-            # 오직 Playwright가 스스로 다운로드한 정품 크롬만 사용합니다.
+            # [핵심 수술 2] 불필요한 경로 찾기 코드를 다 날리고 순정 상태로 실행합니다.
             browser = p.chromium.launch(
                 headless=True,
                 args=[
@@ -153,40 +138,6 @@ if uploaded_file:
             global_count = 1
             start_time = time.time()
 
-        # if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
-        # os.makedirs(temp_dir)
-
-        # # 💡 [로컬/서버 만능 호환 로직] 
-        # # 컴퓨터에 깔린 크롬 경로를 찾습니다. (리눅스용, 윈도우용 모두 확인)
-        # system_chromium_path = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome") or shutil.which("chrome")
-        
-        # with sync_playwright() as p:
-        #     status_text.write("🚀 브라우저 엔진을 가동하는 중...")
-            
-        #     # 실행 옵션 (로컬과 서버 모두 안정적으로 돌아가게 설정)
-        #     launch_args = {
-        #         "headless": True,
-        #         "args": [
-        #             '--no-sandbox',
-        #             '--disable-dev-shm-usage',
-        #             '--disable-gpu',
-        #             '--disable-extensions'
-        #         ]
-        #     }
-            
-        #     # 서버 환경이거나 시스템 크롬이 발견되면 해당 경로를 사용
-        #     if system_chromium_path:
-        #         launch_args["executable_path"] = system_chromium_path
-                
-        #     # 브라우저 실행!
-        #     browser = p.chromium.launch(**launch_args)
-        #     context = browser.new_context(viewport={'width': 1920, 'height': 1080})
-        #     page = context.new_page()
-
-        #     global_count = 1
-        #     start_time = time.time()
-
-            # --- 이후 반복문(for i in range...)은 기존 코드와 100% 동일하게 유지 ---
             for i in range(0, total_urls, 10):
                 current_set = all_urls[i : i + 10]
                 set_num = (i // 10) + 1
