@@ -11,8 +11,8 @@ from urllib.parse import urlparse
 import streamlit as st
 
 # [핵심 수술 1]
-# PLAYWRIGHT_BROWSERS_PATH를 파일 최상단에서 고정 (import 전에 설정해야 적용됨)
-PLAYWRIGHT_BROWSERS_PATH = "/home/adminuser/.cache/ms-playwright"
+# /home/adminuser/.cache 는 권한 없음 → /tmp 는 항상 쓰기 가능
+PLAYWRIGHT_BROWSERS_PATH = "/tmp/pw-browsers"
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = PLAYWRIGHT_BROWSERS_PATH
 
 def install_browser():
@@ -24,10 +24,10 @@ def install_browser():
         capture_output=True,
         text=True
     )
-    # stdout과 stderr를 모두 합쳐서 표시 (playwright는 에러를 stdout에도 출력함)
-    combined = (result.stdout + result.stderr).strip()
     if result.returncode != 0:
-        st.warning(f"브라우저 설치 중 문제 발생 (무시하고 계속 시도):\n{combined}")
+        combined = (result.stdout + result.stderr).strip()
+        st.error(f"브라우저 설치 실패:\n{combined}")
+        st.stop()
 
 install_browser()
 
