@@ -296,7 +296,13 @@ if uploaded_file:
         preview_placeholder = st.empty()
         preview_placeholder.info("시스템 가동 시 미리보기가 표시됩니다.")
 
-    logs = ["SYSTEM READY... 구동 준비 중 입니다. 파일 업로드 후 시스템 가동 버튼을 눌러주세요."]
+    logs = [
+    "✅ SYSTEM READY... 구동 준비가 완료되었습니다.",
+    "🚀 파일을 업로드한 뒤 '시스템 가동' 버튼을 클릭하세요.",
+    "⏱️ 첫 실행 시 환경 구성 작업으로 인해 다소 시간이 소요될 수 있습니다.",
+    "📢 로그가 뜰 때까지 브라우저를 종료하지 마세요.",
+    "🧹 무료 서버의 안정성을 위해 작업 후 [서버 데이터 정리]를 눌러주세요."
+]
     log_board.code("\n".join(logs), language="bash")
     failed_urls = []
 
