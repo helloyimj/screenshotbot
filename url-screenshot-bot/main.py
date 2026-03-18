@@ -7,6 +7,9 @@ import zipfile
 import shutil
 import uuid
 import streamlit as st
+# [서버 전용] Playwright 전용 크롬 브라우저를 클라우드에 직접 설치합니다.
+os.system("playwright install chromium")
+
 import pandas as pd
 from urllib.parse import urlparse
 
@@ -131,35 +134,57 @@ if uploaded_file:
         if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
         os.makedirs(temp_dir)
 
-        # 💡 [로컬/서버 만능 호환 로직] 
-        # 컴퓨터에 깔린 크롬 경로를 찾습니다. (리눅스용, 윈도우용 모두 확인)
-        system_chromium_path = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome") or shutil.which("chrome")
-        
         with sync_playwright() as p:
-            status_text.write("🚀 브라우저 엔진을 가동하는 중...")
+            status_text.write("🚀 Playwright 전용 브라우저 엔진 가동 중...")
             
-            # 실행 옵션 (로컬과 서버 모두 안정적으로 돌아가게 설정)
-            launch_args = {
-                "headless": True,
-                "args": [
+            # 오직 Playwright가 스스로 다운로드한 정품 크롬만 사용합니다.
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
                     '--no-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-gpu',
                     '--disable-extensions'
                 ]
-            }
-            
-            # 서버 환경이거나 시스템 크롬이 발견되면 해당 경로를 사용
-            if system_chromium_path:
-                launch_args["executable_path"] = system_chromium_path
-                
-            # 브라우저 실행!
-            browser = p.chromium.launch(**launch_args)
+            )
             context = browser.new_context(viewport={'width': 1920, 'height': 1080})
             page = context.new_page()
 
             global_count = 1
             start_time = time.time()
+
+        # if os.path.exists(temp_dir): shutil.rmtree(temp_dir)
+        # os.makedirs(temp_dir)
+
+        # # 💡 [로컬/서버 만능 호환 로직] 
+        # # 컴퓨터에 깔린 크롬 경로를 찾습니다. (리눅스용, 윈도우용 모두 확인)
+        # system_chromium_path = shutil.which("chromium") or shutil.which("chromium-browser") or shutil.which("google-chrome") or shutil.which("chrome")
+        
+        # with sync_playwright() as p:
+        #     status_text.write("🚀 브라우저 엔진을 가동하는 중...")
+            
+        #     # 실행 옵션 (로컬과 서버 모두 안정적으로 돌아가게 설정)
+        #     launch_args = {
+        #         "headless": True,
+        #         "args": [
+        #             '--no-sandbox',
+        #             '--disable-dev-shm-usage',
+        #             '--disable-gpu',
+        #             '--disable-extensions'
+        #         ]
+        #     }
+            
+        #     # 서버 환경이거나 시스템 크롬이 발견되면 해당 경로를 사용
+        #     if system_chromium_path:
+        #         launch_args["executable_path"] = system_chromium_path
+                
+        #     # 브라우저 실행!
+        #     browser = p.chromium.launch(**launch_args)
+        #     context = browser.new_context(viewport={'width': 1920, 'height': 1080})
+        #     page = context.new_page()
+
+        #     global_count = 1
+        #     start_time = time.time()
 
             # --- 이후 반복문(for i in range...)은 기존 코드와 100% 동일하게 유지 ---
             for i in range(0, total_urls, 10):
